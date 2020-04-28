@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <Ctrl.h>
 #include <LiquidCrystal.h>
+#include <Window.cpp>
 #include <Window.h>
 
 #define _LCD_TYPE 2
@@ -19,117 +20,12 @@ void handle_rotate(ctrl::Encoder_Event const *);
 void handle_keyup(ctrl::Button_Event const *);
 void handle_long_keydown(ctrl::Button_Event const *);
 
-class Component : public win::Event_Component {
+template <class Page_Component> class Page : public win::Event_Component {
 protected:
-  bool focused = false;
-
-  bool handle_focus(win::Event const *event) {
-    this->focused = true;
-
-    return true;
-  }
-
-  bool handle_unfocus(win::Event const *event) {
-    this->focused = false;
-
-    return true;
-  }
-
-  virtual void render(){};
-
-public:
-  char const *greeting = "hello, world";
-
-  friend class Page;
-};
-
-class Counter : public Component {
-private:
-  uint8_t viewport_width, head_length, tail_length;
-  uint16_t counter;
-  char const *head;
-  char const *tail;
-  bool choosen = false;
-
-  String get_pointer() {
-    String pointer = " ";
-
-    if (this->focused) {
-      pointer = String(">");
-    }
-
-    if (this->choosen) {
-      pointer = String("*");
-    }
-
-    return pointer;
-  }
-
-  bool handle_keyup(win::Event const *event) {
-    this->choosen = !this->choosen;
-    this->render();
-
-    return false;
-  }
-
-  bool handle_scroll(win::Event const *event) {
-    if (this->choosen) {
-      if (event->direction == win::FORWARD) {
-        this->counter++;
-      }
-
-      if (event->direction == win::BACKWARD && this->counter > 0) {
-        this->counter--;
-      }
-
-      this->render();
-
-      return false;
-    }
-
-    return true;
-  }
-
-  void render() {
-    String pointer = this->get_pointer();
-    String head = pointer + String(this->head);
-    String counter = String(this->counter);
-    String tail = counter + String(this->tail);
-    uint8_t spaces_length = this->viewport_width - pointer.length() -
-                            this->head_length - counter.length() -
-                            this->tail_length;
-    String spaces = "";
-
-    for (uint8_t i = 0; i < spaces_length; i++) {
-      spaces.concat(String(" "));
-    }
-
-    String message = head + spaces + tail;
-
-    lcd.print(message);
-  }
-
-public:
-  Counter(uint8_t viewport_width, char const *head, uint8_t head_length,
-          char const *tail = "", uint8_t tail_length = 0,
-          uint16_t initial_counter = 0) {
-    this->viewport_width = viewport_width;
-    this->head = head;
-    this->head_length = head_length;
-    this->tail = tail;
-    this->tail_length = tail_length;
-    this->counter = initial_counter;
-  }
-
-  friend class Page;
-};
-
-class Page : public win::Event_Component {
-private:
   uint8_t offset_height = 0, focused_component = 0, components_length,
           viewport_height = 0;
   int8_t unfocused_component = -1;
-  Counter *components;
+  Page_Component *components;
 
   bool handle_scroll(win::Event const *event) {
     bool propagation_allowed =
@@ -165,11 +61,62 @@ private:
       }
 
       if (should_update) {
+        this->components[this->focused_component].should_update = true;
+        this->components[this->unfocused_component].should_update = true;
+
         this->render();
       }
     }
 
     return true;
+  }
+
+  void focusComponents() {
+    win::Event event;
+    Page_Component *component = &this->components[this->unfocused_component];
+
+    if (component->should_update && this->unfocused_component >= 0) {
+      event.type = win::UNFOCUS;
+
+      component->dispatch_event(&event);
+    }
+
+    component = &this->components[this->focused_component];
+
+    if (component->should_update) {
+      event.type = win::FOCUS;
+
+      component->dispatch_event(&event);
+    }
+  }
+
+  void renderComponents() {
+    for (uint8_t index = this->offset_height, row = 0;
+         row < this->viewport_height && index < this->components_length;
+         index++, row++) {
+      if (this->components[index].should_update) {
+        this->components[index].should_update = false;
+
+        String message = this->components[index].render();
+
+        this->display_component(row, message);
+      }
+    }
+  }
+
+  virtual void display_component(uint8_t row, String message) {}
+
+public:
+  Page(Page_Component components[], uint8_t components_length,
+       uint8_t viewport_height) {
+    this->components = components;
+    this->components_length = components_length;
+    this->viewport_height = viewport_height;
+  }
+
+  void render() {
+    this->focusComponents();
+    this->renderComponents();
   }
 
   void dispatch_event(win::Event const *event) {
@@ -182,95 +129,131 @@ private:
     this->components[this->focused_component].dispatch_event(event);
   }
 
-  void focusComponents() {
-    win::Event event;
-
-    if (this->unfocused_component >= 0) {
-      event.type = win::UNFOCUS;
-
-      this->components[this->unfocused_component].dispatch_event(&event);
-    }
-
-    event.type = win::FOCUS;
-
-    this->components[this->focused_component].dispatch_event(&event);
-  }
-
-  void renderComponents() {
-    for (uint8_t i = this->offset_height, j = 0;
-         j < this->viewport_height && i < this->components_length; i++, j++) {
-      lcd.setCursor(0, j);
-
-      this->components[i].render();
-    }
-  }
-
-  void render() {
-    this->focusComponents();
-
-    this->renderComponents();
-  }
-
-public:
-  Page(Counter components[], uint8_t components_length,
-       uint8_t viewport_height) {
-    this->components = components;
-    this->components_length = components_length;
-    this->viewport_height = viewport_height;
-  }
-
-  friend class Window;
+  friend class win::Window<Page>;
 };
 
-class Window {
+class Counter : public win::Component {
 private:
-  uint8_t current_page = 0, pages_length;
-  int8_t prev_page = -1;
-  Page *pages;
+  uint8_t viewport_width, head_length, tail_length;
+  uint16_t counter;
+  char const *head;
+  char const *tail;
+  bool choosen = false;
 
-public:
-  Window(Page pages[], uint8_t pages_length) {
-    this->pages = pages;
-    this->pages_length = pages_length;
+  String get_pointer() {
+    String pointer = " ";
+
+    if (this->focused) {
+      pointer = String(">");
+    }
+
+    if (this->choosen) {
+      pointer = String("*");
+    }
+
+    return pointer;
   }
 
-  void render() { this->pages[this->current_page].render(); };
+  bool handle_keyup(win::Event const *event) {
+    this->choosen = !this->choosen;
+    this->should_update = true;
 
-  void dispatch_event(win::Event const *event) {
-    this->pages[this->current_page].dispatch_event(event);
-  };
+    return false;
+  }
+
+  bool handle_scroll(win::Event const *event) {
+    if (this->choosen) {
+      if (event->direction == win::FORWARD) {
+        this->counter++;
+      }
+
+      if (event->direction == win::BACKWARD && this->counter > 0) {
+        this->counter--;
+      }
+
+      this->should_update = true;
+
+      return false;
+    }
+
+    return true;
+  }
+
+  String render() {
+    String pointer = this->get_pointer();
+    String head = pointer + String(this->head);
+    String counter = String(this->counter);
+    String tail = counter + String(this->tail);
+    uint8_t spaces_length = this->viewport_width - pointer.length() -
+                            this->head_length - counter.length() -
+                            this->tail_length;
+    String spaces = "";
+
+    for (uint8_t i = 0; i < spaces_length; i++) {
+      spaces.concat(String(" "));
+    }
+
+    return head + spaces + tail;
+  }
+
+public:
+  Counter(uint8_t viewport_width, char const *head, uint8_t head_length,
+          char const *tail = "", uint8_t tail_length = 0,
+          uint16_t initial_counter = 0) {
+    this->viewport_width = viewport_width;
+    this->head = head;
+    this->head_length = head_length;
+    this->tail = tail;
+    this->tail_length = tail_length;
+    this->counter = initial_counter;
+  }
+
+  friend class Page<Counter>;
 };
 
-Counter rotation(16, "Обороты: ", 9);
-Counter distance(16, "Длина: ", 7, "м", 1);
-Counter width(16, "Ширина: ", 8, "м", 1);
+class LCD_1602_PAGE : public Page<Counter> {
+private:
+  void display_component(uint8_t row, String message) {
+    lcd.setCursor(0, row);
+    lcd.print(message);
+  }
+
+public:
+  LCD_1602_PAGE(Counter components[], uint8_t components_length,
+                uint8_t viewport_height)
+      : Page(components, components_length, viewport_height) {}
+};
+
+Counter rotation(16, "Оборот: ", 8);
+Counter distance(16, "Длина: ", 7, "m", 1);
+Counter width(16, "Ширина: ", 8, "m", 1);
 Counter area(16, "Всего: ", 7, "Га", 2);
 Counter components[] = {rotation, distance, width, area};
 
-Page settings(components, 4, 2);
-Page pages[] = {settings};
+LCD_1602_PAGE settings(components, 4, 2);
+LCD_1602_PAGE pages[] = {settings};
 
-Window window(pages, 1);
+win::Window<LCD_1602_PAGE> window(pages, 1);
 
 void setup() {
   // Serial.begin(115200);
+
+  lcd.begin(16, 2);
 
   pinMode(BUTTON, INPUT);
   pinMode(L_ENC_PIN, INPUT_PULLUP);
   pinMode(R_ENC_PIN, INPUT_PULLUP);
 
-  lcd.begin(16, 2);
-
   enc.on("rotate", handle_rotate);
   btn.on("keyup", handle_keyup);
   btn.on("longkeydown", handle_long_keydown);
-
-  window.render();
 }
 
 void loop() {
   enc.listen();
   btn.listen();
+
+  window.render();
 }
 
 void handle_rotate(ctrl::Encoder_Event const *event) {
