@@ -47,25 +47,25 @@ public:
   void dispatch_event(Event const *event);
 };
 
-// template <class Page_Component> class Page : public Event_Component {
-// private:
-//   uint8_t offset_height = 0, focused_component = 0, components_length,
-//           viewport_height = 0;
-//   int8_t unfocused_component = -1;
-//   Page_Component *components;
-//
-//   bool handle_scroll(win::Event const *);
-//   void dispatch_event(win::Event const *);
-//   void focusComponents();
-//   void renderComponents();
-//   void render();
-//
-// public:
-//   Page(Page_Component components[], uint8_t components_length,
-//        uint8_t viewport_height);
-//
-//   friend class Window<Page>;
-// };
+template <class Page_Component> class Page : public Event_Component {
+protected:
+  uint8_t offset_height = 0, focused_component = 0, components_length,
+          viewport_height = 0;
+  int8_t unfocused_component = -1;
+  Page_Component *components;
+
+  bool handle_scroll(Event const *);
+  void focusComponents();
+  void renderComponents();
+  virtual void display_component(uint8_t, String);
+
+public:
+  Page(Page_Component *, uint8_t, uint8_t);
+  void render();
+  void dispatch_event(Event const *);
+
+  friend class Window<Page>;
+};
 } // namespace win
 
 #endif
