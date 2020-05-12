@@ -16,17 +16,39 @@ LCD_1602_RUS<LiquidCrystal> lcd(2, 3, 4, 5, 6, 7);
 ctrl::Button btn(LOW, BUTTON);
 ctrl::Encoder enc(0x03, L_ENC_PIN, R_ENC_PIN);
 
-void handle_rotate(ctrl::Encoder_Event const *);
-void handle_keyup(ctrl::Button_Event const *);
-void handle_long_keydown(ctrl::Button_Event const *);
+void handle_rotate(const ctrl::Encoder_Event *);
+void handle_keyup(const ctrl::Button_Event *);
+void handle_long_keydown(const ctrl::Button_Event *);
 
-class Counter : public win::Component {
-private:
+class LCD_1602_Component : public win::Component {
+public:
   uint8_t viewport_width, head_length, tail_length;
   uint16_t counter;
-  char const *head;
-  char const *tail;
+  uint16_t *counter_ref;
+  const char *head;
+  const char *tail;
+  bool choosen;
+
+  virtual String render() = 0;
+  virtual String get_pointer() { return String(""); };
+  virtual bool handle_keyup(const win::Event *) { return true; };
+  virtual bool handle_scroll(const win::Event *) { return true; };
+};
+
+class Counter : public LCD_1602_Component {
+public:
   bool choosen = false;
+
+  Counter(uint8_t viewport_width, char const *head, uint8_t head_length,
+          char const *tail = "", uint8_t tail_length = 0,
+          uint16_t initial_counter = 0) {
+    this->viewport_width = viewport_width;
+    this->head = head;
+    this->head_length = head_length;
+    this->tail = tail;
+    this->tail_length = tail_length;
+    this->counter = initial_counter;
+  }
 
   String get_pointer() {
     String pointer = " ";
@@ -42,14 +64,14 @@ private:
     return pointer;
   }
 
-  bool handle_keyup(win::Event const *event) {
+  bool handle_keyup(const win::Event *event) {
     this->choosen = !this->choosen;
     this->should_update = true;
 
     return false;
   }
 
-  bool handle_scroll(win::Event const *event) {
+  bool handle_scroll(const win::Event *event) {
     if (this->choosen) {
       if (event->direction == win::FORWARD) {
         this->counter++;
@@ -83,23 +105,9 @@ private:
 
     return head + spaces + tail;
   }
-
-public:
-  Counter(uint8_t viewport_width, char const *head, uint8_t head_length,
-          char const *tail = "", uint8_t tail_length = 0,
-          uint16_t initial_counter = 0) {
-    this->viewport_width = viewport_width;
-    this->head = head;
-    this->head_length = head_length;
-    this->tail = tail;
-    this->tail_length = tail_length;
-    this->counter = initial_counter;
-  }
-
-  friend class win::Page<Counter>;
 };
 
-class LCD_1602_Page : public win::Page<Counter> {
+class LCD_1602_Page : public win::Page<LCD_1602_Component> {
 private:
   void display_component(uint8_t row, String message) {
     lcd.setCursor(0, row);
@@ -107,7 +115,7 @@ private:
   }
 
 public:
-  LCD_1602_Page(Counter components[], uint8_t components_length,
+  LCD_1602_Page(LCD_1602_Component **components, uint8_t components_length,
                 uint8_t viewport_height)
       : Page(components, components_length, viewport_height) {}
 };
@@ -116,10 +124,11 @@ Counter rotation(16, "Оборот: ", 8);
 Counter distance(16, "Длина: ", 7, "m", 1);
 Counter width(16, "Ширина: ", 8, "m", 1);
 Counter area(16, "Всего: ", 7, "Га", 2);
-Counter components[] = {rotation, distance, width, area};
+
+LCD_1602_Component *components[] = {&rotation, &distance, &width, &area};
 
 LCD_1602_Page settings(components, 4, 2);
-LCD_1602_Page pages[] = {settings};
+LCD_1602_Page *pages[] = {&settings};
 
 win::Window<LCD_1602_Page> window(pages, 1);
 
