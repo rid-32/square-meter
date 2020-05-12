@@ -25,6 +25,7 @@ public:
   uint8_t viewport_width, head_length, tail_length;
   uint16_t counter;
   uint16_t *counter_ref;
+  double double_counter;
   const char *head;
   const char *tail;
   bool choosen;
@@ -40,14 +41,12 @@ public:
   bool choosen = false;
 
   Counter(uint8_t viewport_width, char const *head, uint8_t head_length,
-          char const *tail = "", uint8_t tail_length = 0,
-          uint16_t initial_counter = 0) {
+          char const *tail = "", uint8_t tail_length = 0) {
     this->viewport_width = viewport_width;
     this->head = head;
     this->head_length = head_length;
     this->tail = tail;
     this->tail_length = tail_length;
-    this->counter = initial_counter;
   }
 
   String get_pointer() {
@@ -62,6 +61,35 @@ public:
     }
 
     return pointer;
+  }
+
+  virtual String renderCounter() { return String(""); }
+
+  String render() {
+    String pointer = this->get_pointer();
+    String counter = this->renderCounter();
+    String head = pointer + String(this->head);
+    String tail = counter + String(this->tail);
+    uint8_t spaces_length = this->viewport_width - pointer.length() -
+                            this->head_length - counter.length() -
+                            this->tail_length;
+    String spaces = "";
+
+    for (uint8_t i = 0; i < spaces_length; i++) {
+      spaces.concat(String(" "));
+    }
+
+    return head + spaces + tail;
+  }
+};
+
+class Simple_Counter : public Counter {
+public:
+  Simple_Counter(uint8_t viewport_width, char const *head, uint8_t head_length,
+                 char const *tail = "", uint8_t tail_length = 0,
+                 uint16_t initial_counter = 0)
+      : Counter(viewport_width, head, head_length, tail, tail_length) {
+    this->counter = initial_counter;
   }
 
   bool handle_keyup(const win::Event *event) {
@@ -89,41 +117,66 @@ public:
     return true;
   }
 
-  String render() {
-    String pointer = this->get_pointer();
-    String head = pointer + String(this->head);
-    String counter = String(this->counter);
-    String tail = counter + String(this->tail);
-    uint8_t spaces_length = this->viewport_width - pointer.length() -
-                            this->head_length - counter.length() -
-                            this->tail_length;
-    String spaces = "";
+  String renderCounter() { return String(this->counter); }
+};
 
-    for (uint8_t i = 0; i < spaces_length; i++) {
-      spaces.concat(String(" "));
+class Precise_Counter : public Counter {
+public:
+  Precise_Counter(uint8_t viewport_width, char const *head, uint8_t head_length,
+                  char const *tail = "", uint8_t tail_length = 0,
+                  double initial_counter = 0.0)
+      : Counter(viewport_width, head, head_length, tail, tail_length) {
+    this->double_counter = initial_counter;
+  }
+
+  bool handle_keyup(const win::Event *event) {
+    this->choosen = !this->choosen;
+    this->should_update = true;
+
+    return false;
+  }
+
+  bool handle_scroll(const win::Event *event) {
+    if (this->choosen) {
+      if (event->direction == win::FORWARD) {
+        this->double_counter += 0.1;
+      }
+
+      if (event->direction == win::BACKWARD && this->double_counter > 0.0) {
+        const double value = this->double_counter - 0.1;
+
+        if (value >= 0) {
+          this->double_counter = value;
+        }
+      }
+
+      this->should_update = true;
+
+      return false;
     }
 
-    return head + spaces + tail;
+    return true;
   }
+
+  String renderCounter() { return String(this->double_counter); }
 };
 
 class LCD_1602_Page : public win::Page<LCD_1602_Component> {
-private:
-  void display_component(uint8_t row, String message) {
-    lcd.setCursor(0, row);
-    lcd.print(message);
-  }
-
 public:
   LCD_1602_Page(LCD_1602_Component **components, uint8_t components_length,
                 uint8_t viewport_height)
       : Page(components, components_length, viewport_height) {}
+
+  void display_component(uint8_t row, String message) {
+    lcd.setCursor(0, row);
+    lcd.print(message);
+  }
 };
 
-Counter rotation(16, "Оборот: ", 8);
-Counter distance(16, "Длина: ", 7, "m", 1);
-Counter width(16, "Ширина: ", 8, "m", 1);
-Counter area(16, "Всего: ", 7, "Га", 2);
+Simple_Counter rotation(16, "Оборот: ", 8);
+Simple_Counter distance(16, "Длина: ", 7, "m", 1);
+Precise_Counter width(16, "Ширина: ", 8, "m", 1);
+Precise_Counter area(16, "Всего: ", 7, "Га", 2);
 
 LCD_1602_Component *components[] = {&rotation, &distance, &width, &area};
 
