@@ -31,14 +31,14 @@ public:
   bool should_update = true;
 
   virtual String render() = 0;
+  void force_update();
   bool handle_focus(win::Event const *event);
   bool handle_unfocus(win::Event const *event);
 };
 
 template <class Window_Page> class Window {
 public:
-  uint8_t current_page = 0, pages_length;
-  int8_t prev_page = -1;
+  uint8_t pages_length;
   Window_Page **pages;
 
   Window(Window_Page **pages, uint8_t pages_length);
@@ -61,8 +61,6 @@ public:
   Page(Page_Component **, uint8_t, uint8_t);
   void render();
   void dispatch_event(Event const *);
-
-  friend class Window<Page>;
 };
 } // namespace win
 

@@ -54,6 +54,8 @@ bool Component::handle_unfocus(const win::Event *event) {
   return true;
 }
 
+void Component::force_update() { this->should_update = true; }
+
 template <class Window_Page>
 Window<Window_Page>::Window(Window_Page **pages, uint8_t pages_length) {
   this->pages = pages;
@@ -61,13 +63,13 @@ Window<Window_Page>::Window(Window_Page **pages, uint8_t pages_length) {
 }
 
 template <class Window_Page> void Window<Window_Page>::render() {
-  this->pages[this->current_page]->render();
+  this->pages[0]->render();
 }
 
 template <class Window_Page>
 void Window<Window_Page>::dispatch_event(Event const *event) {
 
-  this->pages[this->current_page]->dispatch_event(event);
+  this->pages[0]->dispatch_event(event);
 }
 
 template <class Page_Component>

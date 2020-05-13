@@ -27,8 +27,7 @@ public:
   uint16_t counter;
   uint16_t *counter_ref;
   double double_counter;
-  const char *head;
-  const char *tail;
+  const char *head, *tail, *message;
   bool choosen;
 
   virtual String render() = 0;
@@ -179,6 +178,15 @@ public:
   String renderCounter() { return String(this->double_counter); }
 };
 
+class Label : public LCD_1602_Component {
+public:
+  const char *message;
+
+  Label(const char *message) { this->message = message; }
+
+  String render() { return String(this->message); }
+};
+
 class LCD_1602_Page : public win::Page<LCD_1602_Component> {
 public:
   LCD_1602_Page(LCD_1602_Component **components, uint8_t components_length,
@@ -196,10 +204,16 @@ Simple_Counter distance(16, "Длина: ", 7, "m", 1);
 Precise_Counter width(16, "Ширина: ", 8, "m", 1, 2);
 Precise_Counter area(16, "Всего: ", 7, "Га", 2, 2);
 
-LCD_1602_Component *components[] = {&rotation, &distance, &width, &area};
+Label done_label("Обработано:");
+Label area_label("1,25 Га");
 
-LCD_1602_Page settings(components, 4, 2);
-LCD_1602_Page *pages[] = {&settings};
+LCD_1602_Component *settings_components[] = {&rotation, &distance, &width,
+                                             &area};
+LCD_1602_Component *home_components[] = {&done_label, &area_label};
+
+LCD_1602_Page settings(settings_components, 4, 2);
+LCD_1602_Page home(home_components, 2, 2);
+LCD_1602_Page *pages[] = {&home, &settings};
 
 win::Window<LCD_1602_Page> window(pages, 1);
 
