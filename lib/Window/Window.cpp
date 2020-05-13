@@ -2,19 +2,19 @@
 
 using namespace win;
 
-bool Event_Component::handle_keydown(win::Event const *) { return true; }
+bool Event_Component::handle_keydown(const win::Event *) { return true; }
 
-bool Event_Component::handle_keyup(win::Event const *) { return true; }
+bool Event_Component::handle_keyup(const win::Event *) { return true; }
 
-bool Event_Component::handle_longkeydown(win::Event const *) { return true; }
+bool Event_Component::handle_longkeydown(const win::Event *) { return true; }
 
-bool Event_Component::handle_scroll(win::Event const *) { return true; }
+bool Event_Component::handle_scroll(const win::Event *) { return true; }
 
-bool Event_Component::handle_focus(win::Event const *) { return true; }
+bool Event_Component::handle_focus(const win::Event *) { return true; }
 
-bool Event_Component::handle_unfocus(win::Event const *) { return true; }
+bool Event_Component::handle_unfocus(const win::Event *) { return true; }
 
-bool Event_Component::dispatch_event(win::Event const *event) {
+bool Event_Component::dispatch_event(const win::Event *event) {
   if (event->type == win::KEYDOWN) {
     return this->handle_keydown(event);
   }

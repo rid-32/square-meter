@@ -11,6 +11,8 @@
 #define BUTTON 8
 #define L_ENC_PIN 9
 #define R_ENC_PIN 10
+#define VIEWPORT_HEIGHT 2
+#define VIEWPORT_WIDTH 16
 
 LCD_1602_RUS<LiquidCrystal> lcd(2, 3, 4, 5, 6, 7);
 
@@ -180,11 +182,39 @@ public:
 
 class Label : public LCD_1602_Component {
 public:
-  const char *message;
-
-  Label(const char *message) { this->message = message; }
+  Label(uint8_t viewport_width, const char *message) {
+    this->viewport_width = viewport_width;
+    this->message = message;
+  }
 
   String render() { return String(this->message); }
+};
+
+class Reset : public LCD_1602_Component {
+public:
+  Reset(uint8_t viewport_width) { this->viewport_width = viewport_width; }
+
+  String get_pointer() {
+    String pointer = " ";
+
+    if (this->focused) {
+      pointer = String(">");
+    }
+
+    return pointer;
+  }
+
+  String render() {
+    String pointer = this->get_pointer();
+    String message = String("Сбросить");
+    String spaces;
+
+    for (uint8_t i = 0; i < message.length() + 1; i++) {
+      spaces += " ";
+    }
+
+    return pointer + message + spaces;
+  }
 };
 
 class LCD_1602_Page : public win::Page<LCD_1602_Component> {
@@ -199,23 +229,25 @@ public:
   }
 };
 
-Simple_Counter rotation(16, "Оборот: ", 8);
-Simple_Counter distance(16, "Длина: ", 7, "m", 1);
-Precise_Counter width(16, "Ширина: ", 8, "m", 1, 2);
-Precise_Counter area(16, "Всего: ", 7, "Га", 2, 2);
+Simple_Counter rotation(VIEWPORT_WIDTH, "Оборот: ", 8);
+Simple_Counter distance(VIEWPORT_WIDTH, "Длина: ", 7, "m", 1);
+Precise_Counter width(VIEWPORT_WIDTH, "Ширина: ", 8, "m", 1, 2);
+Precise_Counter area(VIEWPORT_WIDTH, "Всего: ", 7, "Га", 2, 2);
 
-Label done_label("Обработано:");
-Label area_label("1,25 Га");
+Label done_label(VIEWPORT_WIDTH, "Обработано:");
+Label area_label(VIEWPORT_WIDTH, "1,25 Га");
+
+Reset reset(VIEWPORT_WIDTH);
 
 LCD_1602_Component *settings_components[] = {&rotation, &distance, &width,
-                                             &area};
+                                             &area, &reset};
 LCD_1602_Component *home_components[] = {&done_label, &area_label};
 
-LCD_1602_Page settings(settings_components, 4, 2);
-LCD_1602_Page home(home_components, 2, 2);
+LCD_1602_Page settings(settings_components, 5, VIEWPORT_HEIGHT);
+LCD_1602_Page home(home_components, 2, VIEWPORT_HEIGHT);
 LCD_1602_Page *pages[] = {&home, &settings};
 
-win::Window<LCD_1602_Page> window(pages, 1);
+win::Window<LCD_1602_Page> window(pages, 2);
 
 void setup() {
   // Serial.begin(115200);

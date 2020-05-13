@@ -15,14 +15,14 @@ struct Event {
 
 class Event_Component {
 public:
-  virtual bool handle_keydown(Event const *);
-  virtual bool handle_keyup(Event const *);
-  virtual bool handle_longkeydown(Event const *);
-  virtual bool handle_scroll(Event const *);
-  virtual bool handle_focus(Event const *);
-  virtual bool handle_unfocus(Event const *);
+  virtual bool handle_keydown(const Event *);
+  virtual bool handle_keyup(const Event *);
+  virtual bool handle_longkeydown(const Event *);
+  virtual bool handle_scroll(const Event *);
+  virtual bool handle_focus(const Event *);
+  virtual bool handle_unfocus(const Event *);
 
-  bool dispatch_event(Event const *event);
+  bool dispatch_event(const Event *event);
 };
 
 class Component : public Event_Component {
