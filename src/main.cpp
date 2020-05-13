@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <Ctrl.h>
 #include <LiquidCrystal.h>
+#include <Utils.h>
 #include <Window.cpp>
 #include <Window.h>
 
@@ -22,7 +23,7 @@ void handle_long_keydown(const ctrl::Button_Event *);
 
 class LCD_1602_Component : public win::Component {
 public:
-  uint8_t viewport_width, head_length, tail_length;
+  uint8_t viewport_width, head_length, tail_length, precise, curr_precise;
   uint16_t counter;
   uint16_t *counter_ref;
   double double_counter;
@@ -124,13 +125,25 @@ class Precise_Counter : public Counter {
 public:
   Precise_Counter(uint8_t viewport_width, char const *head, uint8_t head_length,
                   char const *tail = "", uint8_t tail_length = 0,
-                  double initial_counter = 0.0)
+                  uint8_t precise = 0, double initial_counter = 0.0)
       : Counter(viewport_width, head, head_length, tail, tail_length) {
     this->double_counter = initial_counter;
+    this->precise = precise;
+    this->curr_precise = 0;
   }
 
   bool handle_keyup(const win::Event *event) {
-    this->choosen = !this->choosen;
+    if (this->choosen) {
+      if (this->curr_precise < this->precise) {
+        this->curr_precise++;
+      } else {
+        this->choosen = false;
+      }
+    } else {
+      this->choosen = true;
+      this->curr_precise = 0;
+    }
+
     this->should_update = true;
 
     return false;
@@ -138,15 +151,20 @@ public:
 
   bool handle_scroll(const win::Event *event) {
     if (this->choosen) {
+      const uint16_t divider = utils::pow(10, this->curr_precise);
+      double value = 1.0 / (float)divider;
+
       if (event->direction == win::FORWARD) {
-        this->double_counter += 0.1;
+        this->double_counter += value;
       }
 
-      if (event->direction == win::BACKWARD && this->double_counter > 0.0) {
-        const double value = this->double_counter - 0.1;
+      if (event->direction == win::BACKWARD) {
+        value = this->double_counter - value;
 
-        if (value >= 0) {
+        if (value >= 0.0) {
           this->double_counter = value;
+        } else {
+          this->double_counter = 0.0;
         }
       }
 
@@ -175,8 +193,8 @@ public:
 
 Simple_Counter rotation(16, "Оборот: ", 8);
 Simple_Counter distance(16, "Длина: ", 7, "m", 1);
-Precise_Counter width(16, "Ширина: ", 8, "m", 1);
-Precise_Counter area(16, "Всего: ", 7, "Га", 2);
+Precise_Counter width(16, "Ширина: ", 8, "m", 1, 2);
+Precise_Counter area(16, "Всего: ", 7, "Га", 2, 2);
 
 LCD_1602_Component *components[] = {&rotation, &distance, &width, &area};
 
