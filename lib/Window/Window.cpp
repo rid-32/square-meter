@@ -238,8 +238,6 @@ void Page<Page_Component>::scroll(const Event *event) {
   if (should_update) {
     this->components[this->focused_component]->should_update = true;
     this->components[this->unfocused_component]->should_update = true;
-
-    this->render();
   }
 }
 

@@ -206,7 +206,7 @@ public:
 
   String render() {
     String pointer = this->get_pointer();
-    String message = String("Сбросить");
+    String message = String("Сброс");
     String spaces;
 
     for (uint8_t i = 0; i < message.length() + 1; i++) {
@@ -232,7 +232,6 @@ public:
 Simple_Counter rotation(VIEWPORT_WIDTH, "Оборот: ", 8);
 Simple_Counter distance(VIEWPORT_WIDTH, "Длина: ", 7, "m", 1);
 Precise_Counter width(VIEWPORT_WIDTH, "Ширина: ", 8, "m", 1, 2);
-Precise_Counter area(VIEWPORT_WIDTH, "Всего: ", 7, "Га", 2, 2);
 
 Label done_label(VIEWPORT_WIDTH, "Обработано:");
 Label area_label(VIEWPORT_WIDTH, "1,25 Га");
@@ -240,10 +239,10 @@ Label area_label(VIEWPORT_WIDTH, "1,25 Га");
 Reset reset(VIEWPORT_WIDTH);
 
 LCD_1602_Component *settings_components[] = {&rotation, &distance, &width,
-                                             &area, &reset};
+                                             &reset};
 LCD_1602_Component *home_components[] = {&done_label, &area_label};
 
-LCD_1602_Page settings(settings_components, 5, VIEWPORT_HEIGHT);
+LCD_1602_Page settings(settings_components, 4, VIEWPORT_HEIGHT);
 LCD_1602_Page home(home_components, 2, VIEWPORT_HEIGHT);
 LCD_1602_Page *pages[] = {&settings, &home};
 
