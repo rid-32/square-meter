@@ -13,27 +13,20 @@ struct Event {
   Scroll_Directions direction;
 };
 
-class Event_Component {
-public:
-  virtual bool handle_keydown(const Event *);
-  virtual bool handle_keyup(const Event *);
-  virtual bool handle_longkeydown(const Event *);
-  virtual bool handle_scroll(const Event *);
-  virtual bool handle_focus(const Event *);
-  virtual bool handle_unfocus(const Event *);
-
-  bool dispatch_event(const Event *event);
-};
-
-class Component : public Event_Component {
+class Component {
 public:
   bool focused = false;
   bool should_update = true;
 
-  virtual String render() = 0;
   void force_update();
   bool handle_focus(win::Event const *event);
   bool handle_unfocus(win::Event const *event);
+  bool dispatch_event(const Event *event);
+  virtual String render() = 0;
+  virtual bool handle_keydown(const Event *);
+  virtual bool handle_keyup(const Event *);
+  virtual bool handle_longkeydown(const Event *);
+  virtual bool handle_scroll(const Event *);
 };
 
 template <class Window_Page> class Window {
@@ -46,16 +39,30 @@ public:
   void dispatch_event(Event const *event);
 };
 
-template <class Page_Component> class Page : public Event_Component {
+template <class Page_Component> class Page {
+private:
+  void scroll(const Event *);
+  void focusComponents();
+  void renderComponents();
+  void _handle_keydown(const Event *);
+  void _handle_keyup(const Event *);
+  void _handle_longkeydown(const Event *);
+  void _handle_scroll(const Event *);
+
 public:
   uint8_t offset_height = 0, focused_component = 0, components_length,
           viewport_height = 0;
   int8_t unfocused_component = -1;
   Page_Component **components;
 
-  bool handle_scroll(const Event *);
-  void focusComponents();
-  void renderComponents();
+  virtual bool handle_capture_keydown(const Event *);
+  virtual bool handle_capture_keyup(const Event *);
+  virtual bool handle_capture_longkeydown(const Event *);
+  virtual bool handle_capture_scroll(const Event *);
+  virtual bool handle_keydown(const Event *);
+  virtual bool handle_keyup(const Event *);
+  virtual bool handle_longkeydown(const Event *);
+  virtual bool handle_scroll(const Event *);
   virtual void display_component(uint8_t, String);
 
   Page(Page_Component **, uint8_t, uint8_t);

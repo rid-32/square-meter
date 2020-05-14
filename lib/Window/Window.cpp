@@ -2,19 +2,15 @@
 
 using namespace win;
 
-bool Event_Component::handle_keydown(const win::Event *) { return true; }
+bool Component::handle_keydown(const win::Event *) { return true; }
 
-bool Event_Component::handle_keyup(const win::Event *) { return true; }
+bool Component::handle_keyup(const win::Event *) { return true; }
 
-bool Event_Component::handle_longkeydown(const win::Event *) { return true; }
+bool Component::handle_longkeydown(const win::Event *) { return true; }
 
-bool Event_Component::handle_scroll(const win::Event *) { return true; }
+bool Component::handle_scroll(const win::Event *) { return true; }
 
-bool Event_Component::handle_focus(const win::Event *) { return true; }
-
-bool Event_Component::handle_unfocus(const win::Event *) { return true; }
-
-bool Event_Component::dispatch_event(const win::Event *event) {
+bool Component::dispatch_event(const win::Event *event) {
   if (event->type == win::KEYDOWN) {
     return this->handle_keydown(event);
   }
@@ -80,51 +76,6 @@ Page<Page_Component>::Page(Page_Component **components,
   this->viewport_height = viewport_height;
 }
 
-template <class Page_Component>
-bool Page<Page_Component>::handle_scroll(Event const *event) {
-  bool propagation_allowed =
-      this->components[this->focused_component]->dispatch_event(event);
-
-  if (propagation_allowed) {
-    bool should_update = false;
-
-    if (event->direction == FORWARD) {
-      if (this->focused_component < this->components_length - 1) {
-        if (this->focused_component > this->offset_height) {
-          this->offset_height++;
-        }
-
-        this->unfocused_component = this->focused_component;
-        this->focused_component++;
-
-        should_update = true;
-      }
-    }
-
-    if (event->direction == BACKWARD) {
-      if (this->focused_component > 0) {
-        if (this->focused_component == this->offset_height) {
-          this->offset_height--;
-        }
-
-        this->unfocused_component = this->focused_component;
-        this->focused_component--;
-
-        should_update = true;
-      }
-    }
-
-    if (should_update) {
-      this->components[this->focused_component]->should_update = true;
-      this->components[this->unfocused_component]->should_update = true;
-
-      this->render();
-    }
-  }
-
-  return true;
-}
-
 template <class Page_Component> void Page<Page_Component>::focusComponents() {
   Event event;
   Page_Component *component = this->components[this->unfocused_component];
@@ -167,9 +118,174 @@ template <class Page_Component> void Page<Page_Component>::render() {
 }
 
 template <class Page_Component>
-void Page<Page_Component>::dispatch_event(Event const *event) {
-  if (event->type == SCROLL) {
-    this->handle_scroll(event);
+bool Page<Page_Component>::handle_capture_keydown(const Event *event) {
+  return true;
+}
+
+template <class Page_Component>
+bool Page<Page_Component>::handle_keydown(const Event *event) {
+  return true;
+}
+
+template <class Page_Component>
+bool Page<Page_Component>::handle_capture_keyup(const Event *event) {
+  return true;
+}
+
+template <class Page_Component>
+bool Page<Page_Component>::handle_keyup(const Event *event) {
+  return true;
+}
+
+template <class Page_Component>
+bool Page<Page_Component>::handle_capture_longkeydown(const Event *event) {
+  return true;
+}
+
+template <class Page_Component>
+bool Page<Page_Component>::handle_longkeydown(const Event *event) {
+  return true;
+}
+
+template <class Page_Component>
+bool Page<Page_Component>::handle_capture_scroll(const Event *event) {
+  return true;
+}
+
+template <class Page_Component>
+bool Page<Page_Component>::handle_scroll(const Event *event) {
+  return true;
+}
+
+template <class Page_Component>
+void Page<Page_Component>::_handle_keydown(const Event *event) {
+  const bool capture_allowed = this->handle_capture_keydown(event);
+
+  if (!capture_allowed)
+    return;
+
+  const bool propagation_allowed =
+      this->components[this->focused_component]->dispatch_event(event);
+
+  if (!propagation_allowed)
+    return;
+
+  this->handle_keydown(event);
+}
+
+template <class Page_Component>
+void Page<Page_Component>::_handle_longkeydown(const Event *event) {
+  const bool capture_allowed = this->handle_capture_longkeydown(event);
+
+  if (!capture_allowed)
+    return;
+
+  const bool propagation_allowed =
+      this->components[this->focused_component]->dispatch_event(event);
+
+  if (!propagation_allowed)
+    return;
+
+  this->handle_longkeydown(event);
+}
+
+template <class Page_Component>
+void Page<Page_Component>::_handle_keyup(const Event *event) {
+  const bool capture_allowed = this->handle_capture_keyup(event);
+
+  if (!capture_allowed)
+    return;
+
+  const bool propagation_allowed =
+      this->components[this->focused_component]->dispatch_event(event);
+
+  if (!propagation_allowed)
+    return;
+
+  this->handle_keyup(event);
+}
+
+template <class Page_Component>
+void Page<Page_Component>::scroll(const Event *event) {
+  bool should_update = false;
+
+  if (event->direction == FORWARD) {
+    if (this->focused_component < this->components_length - 1) {
+      if (this->focused_component > this->offset_height) {
+        this->offset_height++;
+      }
+
+      this->unfocused_component = this->focused_component;
+      this->focused_component++;
+
+      should_update = true;
+    }
+  }
+
+  if (event->direction == BACKWARD) {
+    if (this->focused_component > 0) {
+      if (this->focused_component == this->offset_height) {
+        this->offset_height--;
+      }
+
+      this->unfocused_component = this->focused_component;
+      this->focused_component--;
+
+      should_update = true;
+    }
+  }
+
+  if (should_update) {
+    this->components[this->focused_component]->should_update = true;
+    this->components[this->unfocused_component]->should_update = true;
+
+    this->render();
+  }
+}
+
+template <class Page_Component>
+void Page<Page_Component>::_handle_scroll(const Event *event) {
+  const bool capture_allowed = this->handle_capture_scroll(event);
+
+  if (!capture_allowed)
+    return;
+
+  const bool propagation_allowed =
+      this->components[this->focused_component]->dispatch_event(event);
+
+  if (!propagation_allowed)
+    return;
+
+  const bool handle_allowed = this->handle_scroll(event);
+
+  if (!handle_allowed)
+    return;
+
+  this->scroll(event);
+}
+
+template <class Page_Component>
+void Page<Page_Component>::dispatch_event(const Event *event) {
+  if (event->type == win::KEYDOWN) {
+    this->_handle_keydown(event);
+
+    return;
+  }
+
+  if (event->type == win::KEYUP) {
+    this->_handle_keyup(event);
+
+    return;
+  }
+
+  if (event->type == win::LONGKEYDOWN) {
+    this->_handle_longkeydown(event);
+
+    return;
+  }
+
+  if (event->type == win::SCROLL) {
+    this->_handle_scroll(event);
 
     return;
   }

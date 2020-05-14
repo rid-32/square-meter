@@ -245,7 +245,7 @@ LCD_1602_Component *home_components[] = {&done_label, &area_label};
 
 LCD_1602_Page settings(settings_components, 5, VIEWPORT_HEIGHT);
 LCD_1602_Page home(home_components, 2, VIEWPORT_HEIGHT);
-LCD_1602_Page *pages[] = {&home, &settings};
+LCD_1602_Page *pages[] = {&settings, &home};
 
 win::Window<LCD_1602_Page> window(pages, 2);
 
@@ -295,5 +295,9 @@ void handle_keyup(ctrl::Button_Event const *event) {
 }
 
 void handle_long_keydown(ctrl::Button_Event const *event) {
-  // Serial.println("Long Keydown");
+  win::Event window_event;
+
+  window_event.type = win::LONGKEYDOWN;
+
+  window.dispatch_event(&window_event);
 }
