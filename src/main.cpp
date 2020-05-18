@@ -27,7 +27,7 @@ void handle_long_keydown(const ctrl::Button_Event *);
 
 win::History history(HOME_PAGE);
 
-double area_done = 1.25;
+double area_done = 12.25;
 
 class LCD_1602_Component : public win::Component {
 public:
@@ -37,6 +37,7 @@ public:
   double double_counter;
   const char *head, *tail;
   bool choosen;
+  History *history;
 
   virtual String render() = 0;
   virtual String get_pointer() { return String(""); };
@@ -88,6 +89,14 @@ public:
     }
 
     return head + spaces + tail;
+  }
+
+  bool handle_longkeydown(const win::Event *event) {
+    if (this->choosen) {
+      return false;
+    }
+
+    return true;
   }
 };
 
@@ -245,7 +254,10 @@ public:
 
 class Reset : public LCD_1602_Component {
 public:
-  Reset(uint8_t viewport_width) { this->viewport_width = viewport_width; }
+  Reset(uint8_t viewport_width, History *history) {
+    this->viewport_width = viewport_width;
+    this->history = history;
+  }
 
   String get_pointer() {
     String pointer = " ";
@@ -261,7 +273,7 @@ public:
     if (area_done) {
       area_done = 0.0;
 
-      history.push(HOME_PAGE);
+      this->history->push(HOME_PAGE);
     }
 
     return false;
@@ -282,6 +294,9 @@ public:
 
 class LCD_1602_Page : public win::Page<LCD_1602_Component> {
 public:
+  bool is_mounted_after_navigation;
+  History *history;
+
   LCD_1602_Page(LCD_1602_Component **components, uint8_t components_length,
                 uint8_t viewport_height)
       : Page(components, components_length, viewport_height) {}
@@ -295,11 +310,13 @@ public:
 class Home_Page : public LCD_1602_Page {
 public:
   Home_Page(LCD_1602_Component **components, uint8_t components_length,
-            uint8_t viewport_height)
-      : LCD_1602_Page(components, components_length, viewport_height){};
+            uint8_t viewport_height, History *history)
+      : LCD_1602_Page(components, components_length, viewport_height) {
+    this->history = history;
+  };
 
   bool handle_capture_longkeydown(const win::Event *event) {
-    history.push(SETTINGS_PAGE);
+    this->history->push(SETTINGS_PAGE);
 
     return false;
   }
@@ -308,13 +325,45 @@ public:
 class Settings_Page : public LCD_1602_Page {
 public:
   Settings_Page(LCD_1602_Component **components, uint8_t components_length,
-                uint8_t viewport_height)
-      : LCD_1602_Page(components, components_length, viewport_height){};
+                uint8_t viewport_height, History *history)
+      : LCD_1602_Page(components, components_length, viewport_height) {
+    this->history = history;
+  };
 
-  bool handle_capture_longkeydown(const win::Event *event) {
-    history.push(HOME_PAGE);
+  void handle_did_mount() {
+    const int8_t prev_location = this->history->get_prev_location();
+
+    if (~prev_location) {
+      this->is_mounted_after_navigation = true;
+    } else {
+      this->is_mounted_after_navigation = false;
+    }
+  }
+
+  bool handle_longkeydown(const win::Event *event) {
+    this->history->push(HOME_PAGE);
 
     return false;
+  }
+
+  bool handle_capture_keyup(const win::Event *event) {
+    if (this->is_mounted_after_navigation) {
+      this->is_mounted_after_navigation = false;
+
+      return false;
+    }
+
+    return true;
+  }
+
+  bool handle_capture_scroll(const win::Event *event) {
+    if (this->is_mounted_after_navigation) {
+      this->is_mounted_after_navigation = false;
+
+      return false;
+    }
+
+    return true;
   }
 };
 
@@ -325,14 +374,14 @@ Precise_Counter width(VIEWPORT_WIDTH, "Ширина: ", 8, "m", 1, 2);
 Label done_label(VIEWPORT_WIDTH, "Обработано:", 11);
 Area_Done area_done_label(VIEWPORT_WIDTH);
 
-Reset reset(VIEWPORT_WIDTH);
+Reset reset(VIEWPORT_WIDTH, &history);
 
 LCD_1602_Component *settings_components[] = {&rotation, &distance, &width,
                                              &reset};
 LCD_1602_Component *home_components[] = {&done_label, &area_done_label};
 
-Settings_Page settings(settings_components, 4, VIEWPORT_HEIGHT);
-Home_Page home(home_components, 2, VIEWPORT_HEIGHT);
+Settings_Page settings(settings_components, 4, VIEWPORT_HEIGHT, &history);
+Home_Page home(home_components, 2, VIEWPORT_HEIGHT, &history);
 LCD_1602_Page *pages[] = {&home, &settings};
 
 win::Window<LCD_1602_Page> window(pages, 2);

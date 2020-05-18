@@ -15,13 +15,14 @@ struct Event {
 
 class History {
 private:
-  uint8_t location, prev_location = -1;
+  uint8_t location;
+  int8_t prev_location = -1;
 
 public:
   History(uint8_t);
   void push(uint8_t);
   uint8_t get_location();
-  uint8_t get_prev_location();
+  int8_t get_prev_location();
 };
 
 class Component {
@@ -42,8 +43,8 @@ public:
 
 template <class Window_Page> class Window {
 private:
-  void unmount_page(const uint8_t);
-  void mount_page(const uint8_t);
+  void unmount_page(Window_Page *);
+  void mount_page(Window_Page *);
   void render_page(const uint8_t, const int8_t = -1);
 
 public:
@@ -83,6 +84,8 @@ public:
   virtual bool handle_longkeydown(const Event *);
   virtual bool handle_scroll(const Event *);
   virtual void display_component(uint8_t, String);
+  virtual void handle_did_mount();
+  virtual void handle_will_unmount();
 
   Page(Page_Component **, uint8_t, uint8_t);
   void render();

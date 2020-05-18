@@ -64,12 +64,7 @@ void Window<Window_Page>::connect(History *history) {
 }
 
 template <class Window_Page>
-void Window<Window_Page>::mount_page(const uint8_t location) {
-  Window_Page *page = this->pages[location];
-
-  if (page->mounted)
-    return;
-
+void Window<Window_Page>::mount_page(Window_Page *page) {
   page->mounted = true;
 
   for (uint8_t i = 0; i < page->components_length; i++) {
@@ -78,26 +73,37 @@ void Window<Window_Page>::mount_page(const uint8_t location) {
 }
 
 template <class Window_Page>
-void Window<Window_Page>::unmount_page(const uint8_t location) {
-  Window_Page *page = this->pages[location];
-
-  if (page->mounted) {
-    page->mounted = false;
-    page->offset_height = 0;
-    page->focused_component = 0;
-  }
+void Window<Window_Page>::unmount_page(Window_Page *page) {
+  page->mounted = false;
+  page->offset_height = 0;
+  page->focused_component = 0;
 }
 
 template <class Window_Page>
 void Window<Window_Page>::render_page(const uint8_t location,
                                       const int8_t prev_location) {
   if (~prev_location) {
-    this->unmount_page(prev_location);
+    Window_Page *prev_page = this->pages[prev_location];
+
+    if (prev_page->mounted) {
+      prev_page->handle_will_unmount();
+
+      this->unmount_page(prev_page);
+    }
   }
 
-  this->mount_page(location);
+  Window_Page *page = this->pages[location];
+  bool is_mounted = page->mounted;
 
-  this->pages[location]->render();
+  if (!is_mounted) {
+    this->mount_page(page);
+  }
+
+  page->render();
+
+  if (!is_mounted) {
+    page->handle_did_mount();
+  }
 }
 
 template <class Window_Page> void Window<Window_Page>::render() {
@@ -177,6 +183,15 @@ void Page<Page_Component>::display_component(uint8_t row, String message) {}
 template <class Page_Component> void Page<Page_Component>::render() {
   this->focusComponents();
   this->renderComponents();
+}
+
+template <class Page_Component> void Page<Page_Component>::handle_did_mount() {
+  return;
+}
+
+template <class Page_Component>
+void Page<Page_Component>::handle_will_unmount() {
+  return;
 }
 
 template <class Page_Component>
@@ -362,5 +377,5 @@ void History::push(uint8_t location) {
 
 uint8_t History::get_location() { return this->location; }
 
-uint8_t History::get_prev_location() { return this->prev_location; }
+int8_t History::get_prev_location() { return this->prev_location; }
 
