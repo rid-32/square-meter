@@ -58,14 +58,76 @@ Window<Window_Page>::Window(Window_Page **pages, uint8_t pages_length) {
   this->pages_length = pages_length;
 }
 
-template <class Window_Page> void Window<Window_Page>::render() {
-  this->pages[0]->render();
+template <class Window_Page>
+void Window<Window_Page>::connect(History *history) {
+  this->history = history;
 }
 
 template <class Window_Page>
-void Window<Window_Page>::dispatch_event(Event const *event) {
+void Window<Window_Page>::mount_page(const uint8_t location) {
+  Window_Page *page = this->pages[location];
 
-  this->pages[0]->dispatch_event(event);
+  if (page->mounted)
+    return;
+
+  page->mounted = true;
+
+  for (uint8_t i = 0; i < page->components_length; i++) {
+    page->components[i]->should_update = true;
+  }
+}
+
+template <class Window_Page>
+void Window<Window_Page>::unmount_page(const uint8_t location) {
+  Window_Page *page = this->pages[location];
+
+  if (page->mounted) {
+    page->mounted = false;
+    page->offset_height = 0;
+    page->focused_component = 0;
+  }
+}
+
+template <class Window_Page>
+void Window<Window_Page>::render_page(const uint8_t location,
+                                      const int8_t prev_location) {
+  if (~prev_location) {
+    this->unmount_page(prev_location);
+  }
+
+  this->mount_page(location);
+
+  this->pages[location]->render();
+}
+
+template <class Window_Page> void Window<Window_Page>::render() {
+  if (!this->history) {
+    this->render_page(0);
+  }
+
+  const uint8_t location = this->history->get_location();
+  const uint8_t prev_location = this->history->get_prev_location();
+
+  if (location < this->pages_length) {
+    this->render_page(location, prev_location);
+  } else {
+    this->render_page(0);
+  }
+}
+
+template <class Window_Page>
+void Window<Window_Page>::dispatch_event(const Event *event) {
+  if (!this->history) {
+    this->pages[0]->dispatch_event(event);
+  }
+
+  const uint8_t location = this->history->get_location();
+
+  if (location < this->pages_length) {
+    this->pages[location]->dispatch_event(event);
+  } else {
+    this->pages[0]->dispatch_event(event);
+  }
 }
 
 template <class Page_Component>
@@ -290,3 +352,15 @@ void Page<Page_Component>::dispatch_event(const Event *event) {
 
   this->components[this->focused_component]->dispatch_event(event);
 }
+
+History::History(uint8_t location) { this->location = location; }
+
+void History::push(uint8_t location) {
+  this->prev_location = this->location;
+  this->location = location;
+}
+
+uint8_t History::get_location() { return this->location; }
+
+uint8_t History::get_prev_location() { return this->prev_location; }
+

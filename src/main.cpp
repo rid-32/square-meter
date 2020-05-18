@@ -13,6 +13,8 @@
 #define R_ENC_PIN 10
 #define VIEWPORT_HEIGHT 2
 #define VIEWPORT_WIDTH 16
+#define HOME_PAGE 0
+#define SETTINGS_PAGE 1
 
 LCD_1602_RUS<LiquidCrystal> lcd(2, 3, 4, 5, 6, 7);
 
@@ -23,13 +25,17 @@ void handle_rotate(const ctrl::Encoder_Event *);
 void handle_keyup(const ctrl::Button_Event *);
 void handle_long_keydown(const ctrl::Button_Event *);
 
+win::History history(HOME_PAGE);
+
+double area_done = 1.25;
+
 class LCD_1602_Component : public win::Component {
 public:
   uint8_t viewport_width, head_length, tail_length, precise, curr_precise;
   uint16_t counter;
   uint16_t *counter_ref;
   double double_counter;
-  const char *head, *tail, *message;
+  const char *head, *tail;
   bool choosen;
 
   virtual String render() = 0;
@@ -182,12 +188,59 @@ public:
 
 class Label : public LCD_1602_Component {
 public:
-  Label(uint8_t viewport_width, const char *message) {
+  Label(uint8_t viewport_width, const char *head, const uint8_t head_length) {
     this->viewport_width = viewport_width;
-    this->message = message;
+    this->head = head;
+    this->head_length = head_length;
   }
 
-  String render() { return String(this->message); }
+  String render() {
+    const String message = String(this->head);
+    uint8_t left_spaces_length = (this->viewport_width - this->head_length) / 2;
+    uint8_t right_spaces_length =
+        (this->viewport_width - this->head_length - left_spaces_length);
+    String left_spaces = "";
+    String right_spaces = "";
+    uint8_t idx;
+
+    for (idx = 0; idx < left_spaces_length; idx++) {
+      left_spaces.concat(String(" "));
+    }
+
+    for (idx = 0; idx < right_spaces_length; idx++) {
+      right_spaces.concat(String(" "));
+    }
+
+    return left_spaces + message + right_spaces;
+  }
+};
+
+class Area_Done : public LCD_1602_Component {
+public:
+  Area_Done(uint8_t viewport_width) { this->viewport_width = viewport_width; }
+
+  String render() {
+    const String value = String(area_done);
+    const String tail = String(" Га");
+    const uint8_t value_length = value.length() + 3;
+
+    uint8_t left_spaces_length = (this->viewport_width - value_length) / 2;
+    uint8_t right_spaces_length =
+        (this->viewport_width - value_length - left_spaces_length);
+    String left_spaces = "";
+    String right_spaces = "";
+    uint8_t idx;
+
+    for (idx = 0; idx < left_spaces_length; idx++) {
+      left_spaces.concat(String(" "));
+    }
+
+    for (idx = 0; idx < right_spaces_length; idx++) {
+      right_spaces.concat(String(" "));
+    }
+
+    return left_spaces + value + tail + right_spaces;
+  }
 };
 
 class Reset : public LCD_1602_Component {
@@ -204,9 +257,19 @@ public:
     return pointer;
   }
 
+  bool handle_keyup(const win::Event *event) {
+    if (area_done) {
+      area_done = 0.0;
+
+      history.push(HOME_PAGE);
+    }
+
+    return false;
+  }
+
   String render() {
-    String pointer = this->get_pointer();
-    String message = String("Сброс");
+    const String pointer = this->get_pointer();
+    const String message = "Сброс";
     String spaces;
 
     for (uint8_t i = 0; i < message.length() + 1; i++) {
@@ -229,29 +292,55 @@ public:
   }
 };
 
+class Home_Page : public LCD_1602_Page {
+public:
+  Home_Page(LCD_1602_Component **components, uint8_t components_length,
+            uint8_t viewport_height)
+      : LCD_1602_Page(components, components_length, viewport_height){};
+
+  bool handle_capture_longkeydown(const win::Event *event) {
+    history.push(SETTINGS_PAGE);
+
+    return false;
+  }
+};
+
+class Settings_Page : public LCD_1602_Page {
+public:
+  Settings_Page(LCD_1602_Component **components, uint8_t components_length,
+                uint8_t viewport_height)
+      : LCD_1602_Page(components, components_length, viewport_height){};
+
+  bool handle_capture_longkeydown(const win::Event *event) {
+    history.push(HOME_PAGE);
+
+    return false;
+  }
+};
+
 Simple_Counter rotation(VIEWPORT_WIDTH, "Оборот: ", 8);
 Simple_Counter distance(VIEWPORT_WIDTH, "Длина: ", 7, "m", 1);
 Precise_Counter width(VIEWPORT_WIDTH, "Ширина: ", 8, "m", 1, 2);
 
-Label done_label(VIEWPORT_WIDTH, "Обработано:");
-Label area_label(VIEWPORT_WIDTH, "1,25 Га");
+Label done_label(VIEWPORT_WIDTH, "Обработано:", 11);
+Area_Done area_done_label(VIEWPORT_WIDTH);
 
 Reset reset(VIEWPORT_WIDTH);
 
 LCD_1602_Component *settings_components[] = {&rotation, &distance, &width,
                                              &reset};
-LCD_1602_Component *home_components[] = {&done_label, &area_label};
+LCD_1602_Component *home_components[] = {&done_label, &area_done_label};
 
-LCD_1602_Page settings(settings_components, 4, VIEWPORT_HEIGHT);
-LCD_1602_Page home(home_components, 2, VIEWPORT_HEIGHT);
-LCD_1602_Page *pages[] = {&settings, &home};
+Settings_Page settings(settings_components, 4, VIEWPORT_HEIGHT);
+Home_Page home(home_components, 2, VIEWPORT_HEIGHT);
+LCD_1602_Page *pages[] = {&home, &settings};
 
 win::Window<LCD_1602_Page> window(pages, 2);
 
 void setup() {
   // Serial.begin(115200);
 
-  lcd.begin(16, 2);
+  lcd.begin(VIEWPORT_WIDTH, VIEWPORT_HEIGHT);
 
   pinMode(BUTTON, INPUT);
   pinMode(L_ENC_PIN, INPUT_PULLUP);
@@ -260,6 +349,8 @@ void setup() {
   enc.on("rotate", handle_rotate);
   btn.on("keyup", handle_keyup);
   btn.on("longkeydown", handle_long_keydown);
+
+  window.connect(&history);
 }
 
 void loop() {
