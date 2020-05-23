@@ -2,6 +2,8 @@
 #include <Arduino.h>
 #include <Ctrl.h>
 #include <LiquidCrystal.h>
+#include <Storage.cpp>
+#include <Storage.h>
 #include <Window.cpp>
 #include <Window.h>
 
@@ -17,6 +19,16 @@
 #define SETTINGS_PAGE 1
 
 typedef LCD_1602_RUS<LiquidCrystal> LCD_1602;
+
+struct Storage_Data {
+  uint16_t rotation;
+  uint16_t distance;
+  double width;
+};
+
+Storage_Data storage_data = {0, 0, 0.0};
+
+strg::Storage<Storage_Data> storage(&storage_data);
 
 LCD_1602 lcd(2, 3, 4, 5, 6, 7);
 
@@ -99,6 +111,57 @@ public:
   }
 };
 
+class Rotation_Counter : public Simple_Counter {
+public:
+  Rotation_Counter() : Simple_Counter(VIEWPORT_WIDTH, "Оборот: ", 8) {
+    Storage_Data data = storage.get();
+
+    this->counter = data.rotation;
+  }
+
+  void save_counter() {
+    Storage_Data data = storage.get();
+
+    data.rotation = this->counter;
+
+    storage.set(&data);
+  }
+};
+
+class Distance_Counter : public Simple_Counter {
+public:
+  Distance_Counter() : Simple_Counter(VIEWPORT_WIDTH, "Длина: ", 7, "m", 1) {
+    Storage_Data data = storage.get();
+
+    this->counter = data.distance;
+  }
+
+  void save_counter() {
+    Storage_Data data = storage.get();
+
+    data.distance = this->counter;
+
+    storage.set(&data);
+  }
+};
+
+class Width_Counter : public Precise_Counter {
+public:
+  Width_Counter() : Precise_Counter(VIEWPORT_WIDTH, "Ширина: ", 8, "m", 1, 2) {
+    Storage_Data data = storage.get();
+
+    this->double_counter = data.width;
+  }
+
+  void save_counter() {
+    Storage_Data data = storage.get();
+
+    data.width = this->double_counter;
+
+    storage.set(&data);
+  }
+};
+
 template <class LCD_Component>
 class LCD_1602_Page : public win::Page<LCD_1602_Component> {
 public:
@@ -178,9 +241,9 @@ public:
   }
 };
 
-Simple_Counter rotation(VIEWPORT_WIDTH, "Оборот: ", 8);
-Simple_Counter distance(VIEWPORT_WIDTH, "Длина: ", 7, "m", 1);
-Precise_Counter width(VIEWPORT_WIDTH, "Ширина: ", 8, "m", 1, 2);
+Rotation_Counter rotation;
+Distance_Counter distance;
+Width_Counter width;
 
 Label done_label(VIEWPORT_WIDTH, "Обработано:", 11);
 Area_Done area_done_label(VIEWPORT_WIDTH);
@@ -220,7 +283,7 @@ void loop() {
   window.render();
 }
 
-void handle_rotate(ctrl::Encoder_Event const *event) {
+void handle_rotate(const ctrl::Encoder_Event *event) {
   win::Event window_event;
 
   window_event.type = win::SCROLL;
@@ -236,7 +299,7 @@ void handle_rotate(ctrl::Encoder_Event const *event) {
   window.dispatch_event(&window_event);
 }
 
-void handle_keyup(ctrl::Button_Event const *event) {
+void handle_keyup(const ctrl::Button_Event *event) {
   win::Event window_event;
 
   window_event.type = win::KEYUP;
@@ -244,7 +307,7 @@ void handle_keyup(ctrl::Button_Event const *event) {
   window.dispatch_event(&window_event);
 }
 
-void handle_long_keydown(ctrl::Button_Event const *event) {
+void handle_long_keydown(const ctrl::Button_Event *event) {
   win::Event window_event;
 
   window_event.type = win::LONGKEYDOWN;

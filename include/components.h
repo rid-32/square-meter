@@ -15,6 +15,8 @@ public:
   virtual String get_pointer();
   virtual bool handle_keyup(const win::Event *);
   virtual bool handle_scroll(const win::Event *);
+  virtual String renderCounter();
+  virtual void save_counter();
 };
 
 class Counter : public LCD_1602_Component {
@@ -23,7 +25,6 @@ public:
 
   Counter(uint8_t, const char *, uint8_t, const char *, uint8_t);
   String get_pointer();
-  virtual String renderCounter();
   String render();
   bool handle_longkeydown(const win::Event *);
 };
@@ -31,11 +32,8 @@ public:
 class Simple_Counter : public Counter {
 public:
   Simple_Counter(uint8_t viewport_width, const char *head, uint8_t head_length,
-                 const char *tail = "", uint8_t tail_length = 0,
-                 uint16_t initial_counter = 0)
-      : Counter(viewport_width, head, head_length, tail, tail_length) {
-    this->counter = initial_counter;
-  }
+                 const char *tail = "", uint8_t tail_length = 0)
+      : Counter(viewport_width, head, head_length, tail, tail_length) {}
   bool handle_keyup(const win::Event *);
   bool handle_scroll(const win::Event *);
   String renderCounter();
@@ -45,9 +43,8 @@ class Precise_Counter : public Counter {
 public:
   Precise_Counter(uint8_t viewport_width, char const *head, uint8_t head_length,
                   char const *tail = "", uint8_t tail_length = 0,
-                  uint8_t precise = 0, double initial_counter = 0.0)
+                  uint8_t precise = 0)
       : Counter(viewport_width, head, head_length, tail, tail_length) {
-    this->double_counter = initial_counter;
     this->precise = precise;
     this->curr_precise = 0;
   }

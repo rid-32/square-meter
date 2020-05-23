@@ -2,10 +2,10 @@
 #include <Utils.h>
 
 String LCD_1602_Component::get_pointer() { return String(""); }
-
 bool LCD_1602_Component::handle_keyup(const win::Event *) { return true; }
-
 bool LCD_1602_Component::handle_scroll(const win::Event *) { return true; }
+String LCD_1602_Component::renderCounter() { return String(""); }
+void LCD_1602_Component::save_counter() { return; }
 
 Counter::Counter(uint8_t viewport_width, const char *head, uint8_t head_length,
                  const char *tail = "", uint8_t tail_length = 0) {
@@ -29,8 +29,6 @@ String Counter::get_pointer() {
 
   return pointer;
 }
-
-String Counter::renderCounter() { return String(""); }
 
 String Counter::render() {
   String pointer = this->get_pointer();
@@ -60,6 +58,10 @@ bool Counter::handle_longkeydown(const win::Event *event) {
 bool Simple_Counter::handle_keyup(const win::Event *event) {
   this->choosen = !this->choosen;
   this->should_update = true;
+
+  if (!this->choosen) {
+    this->save_counter();
+  }
 
   return false;
 }
@@ -97,6 +99,10 @@ bool Precise_Counter::handle_keyup(const win::Event *event) {
   }
 
   this->should_update = true;
+
+  if (!this->choosen) {
+    this->save_counter();
+  }
 
   return false;
 }
