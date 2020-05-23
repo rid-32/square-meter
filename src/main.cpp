@@ -1,7 +1,7 @@
+#include "components.h"
 #include <Arduino.h>
 #include <Ctrl.h>
 #include <LiquidCrystal.h>
-#include <Utils.h>
 #include <Window.cpp>
 #include <Window.h>
 
@@ -16,7 +16,9 @@
 #define HOME_PAGE 0
 #define SETTINGS_PAGE 1
 
-LCD_1602_RUS<LiquidCrystal> lcd(2, 3, 4, 5, 6, 7);
+typedef LCD_1602_RUS<LiquidCrystal> LCD_1602;
+
+LCD_1602 lcd(2, 3, 4, 5, 6, 7);
 
 ctrl::Button btn(LOW, BUTTON);
 ctrl::Encoder enc(0x03, L_ENC_PIN, R_ENC_PIN);
@@ -28,201 +30,6 @@ void handle_long_keydown(const ctrl::Button_Event *);
 win::History history(HOME_PAGE);
 
 double area_done = 12.25;
-
-class LCD_1602_Component : public win::Component {
-public:
-  uint8_t viewport_width, head_length, tail_length, precise, curr_precise;
-  uint16_t counter;
-  uint16_t *counter_ref;
-  double double_counter;
-  const char *head, *tail;
-  bool choosen;
-  History *history;
-
-  virtual String render() = 0;
-  virtual String get_pointer() { return String(""); };
-  virtual bool handle_keyup(const win::Event *) { return true; };
-  virtual bool handle_scroll(const win::Event *) { return true; };
-};
-
-class Counter : public LCD_1602_Component {
-public:
-  bool choosen = false;
-
-  Counter(uint8_t viewport_width, char const *head, uint8_t head_length,
-          char const *tail = "", uint8_t tail_length = 0) {
-    this->viewport_width = viewport_width;
-    this->head = head;
-    this->head_length = head_length;
-    this->tail = tail;
-    this->tail_length = tail_length;
-  }
-
-  String get_pointer() {
-    String pointer = " ";
-
-    if (this->focused) {
-      pointer = String(">");
-    }
-
-    if (this->choosen) {
-      pointer = String("*");
-    }
-
-    return pointer;
-  }
-
-  virtual String renderCounter() { return String(""); }
-
-  String render() {
-    String pointer = this->get_pointer();
-    String counter = this->renderCounter();
-    String head = pointer + String(this->head);
-    String tail = counter + String(this->tail);
-    uint8_t spaces_length = this->viewport_width - pointer.length() -
-                            this->head_length - counter.length() -
-                            this->tail_length;
-    String spaces = "";
-
-    for (uint8_t i = 0; i < spaces_length; i++) {
-      spaces.concat(String(" "));
-    }
-
-    return head + spaces + tail;
-  }
-
-  bool handle_longkeydown(const win::Event *event) {
-    if (this->choosen) {
-      return false;
-    }
-
-    return true;
-  }
-};
-
-class Simple_Counter : public Counter {
-public:
-  Simple_Counter(uint8_t viewport_width, char const *head, uint8_t head_length,
-                 char const *tail = "", uint8_t tail_length = 0,
-                 uint16_t initial_counter = 0)
-      : Counter(viewport_width, head, head_length, tail, tail_length) {
-    this->counter = initial_counter;
-  }
-
-  bool handle_keyup(const win::Event *event) {
-    this->choosen = !this->choosen;
-    this->should_update = true;
-
-    return false;
-  }
-
-  bool handle_scroll(const win::Event *event) {
-    if (this->choosen) {
-      if (event->direction == win::FORWARD) {
-        this->counter++;
-      }
-
-      if (event->direction == win::BACKWARD && this->counter > 0) {
-        this->counter--;
-      }
-
-      this->should_update = true;
-
-      return false;
-    }
-
-    return true;
-  }
-
-  String renderCounter() { return String(this->counter); }
-};
-
-class Precise_Counter : public Counter {
-public:
-  Precise_Counter(uint8_t viewport_width, char const *head, uint8_t head_length,
-                  char const *tail = "", uint8_t tail_length = 0,
-                  uint8_t precise = 0, double initial_counter = 0.0)
-      : Counter(viewport_width, head, head_length, tail, tail_length) {
-    this->double_counter = initial_counter;
-    this->precise = precise;
-    this->curr_precise = 0;
-  }
-
-  bool handle_keyup(const win::Event *event) {
-    if (this->choosen) {
-      if (this->curr_precise < this->precise) {
-        this->curr_precise++;
-      } else {
-        this->choosen = false;
-      }
-    } else {
-      this->choosen = true;
-      this->curr_precise = 0;
-    }
-
-    this->should_update = true;
-
-    return false;
-  }
-
-  bool handle_scroll(const win::Event *event) {
-    if (this->choosen) {
-      const uint16_t divider = utils::pow(10, this->curr_precise);
-      double value = 1.0 / (float)divider;
-
-      if (event->direction == win::FORWARD) {
-        this->double_counter += value;
-      }
-
-      if (event->direction == win::BACKWARD) {
-        value = this->double_counter - value;
-
-        if (value >= 0.0) {
-          this->double_counter = value;
-        } else {
-          this->double_counter = 0.0;
-        }
-      }
-
-      this->should_update = true;
-
-      return false;
-    }
-
-    return true;
-  }
-
-  String renderCounter() { return String(this->double_counter); }
-};
-
-class Label : public LCD_1602_Component {
-public:
-  Label(uint8_t viewport_width, const char *head, const uint8_t head_length) {
-    this->viewport_width = viewport_width;
-    this->head = head;
-    this->head_length = head_length;
-  }
-
-  String render() {
-    const String message = String(this->head);
-    uint8_t left_spaces_length = (this->viewport_width - this->head_length) / 2;
-    uint8_t right_spaces_length =
-        (this->viewport_width - this->head_length - left_spaces_length);
-    String left_spaces = "";
-    String right_spaces = "";
-    uint8_t idx;
-
-    for (idx = 0; idx < left_spaces_length; idx++) {
-      left_spaces.concat(String(" "));
-    }
-
-    for (idx = 0; idx < right_spaces_length; idx++) {
-      right_spaces.concat(String(" "));
-    }
-
-    return left_spaces + message + right_spaces;
-  }
-};
 
 class Area_Done : public LCD_1602_Component {
 public:
@@ -292,26 +99,30 @@ public:
   }
 };
 
+template <class LCD_Component>
 class LCD_1602_Page : public win::Page<LCD_1602_Component> {
 public:
   bool is_mounted_after_navigation;
   History *history;
+  LCD_Component *lcd;
 
   LCD_1602_Page(LCD_1602_Component **components, uint8_t components_length,
-                uint8_t viewport_height)
-      : Page(components, components_length, viewport_height) {}
+                uint8_t viewport_height, LCD_Component *lcd)
+      : Page(components, components_length, viewport_height) {
+    this->lcd = lcd;
+  }
 
   void display_component(uint8_t row, String message) {
-    lcd.setCursor(0, row);
-    lcd.print(message);
+    this->lcd->setCursor(0, row);
+    this->lcd->print(message);
   }
 };
 
-class Home_Page : public LCD_1602_Page {
+class Home_Page : public LCD_1602_Page<LCD_1602> {
 public:
   Home_Page(LCD_1602_Component **components, uint8_t components_length,
-            uint8_t viewport_height, History *history)
-      : LCD_1602_Page(components, components_length, viewport_height) {
+            uint8_t viewport_height, History *history, LCD_1602 *lcd)
+      : LCD_1602_Page(components, components_length, viewport_height, lcd) {
     this->history = history;
   };
 
@@ -322,11 +133,11 @@ public:
   }
 };
 
-class Settings_Page : public LCD_1602_Page {
+class Settings_Page : public LCD_1602_Page<LCD_1602> {
 public:
   Settings_Page(LCD_1602_Component **components, uint8_t components_length,
-                uint8_t viewport_height, History *history)
-      : LCD_1602_Page(components, components_length, viewport_height) {
+                uint8_t viewport_height, History *history, LCD_1602 *lcd)
+      : LCD_1602_Page(components, components_length, viewport_height, lcd) {
     this->history = history;
   };
 
@@ -380,11 +191,11 @@ LCD_1602_Component *settings_components[] = {&rotation, &distance, &width,
                                              &reset};
 LCD_1602_Component *home_components[] = {&done_label, &area_done_label};
 
-Settings_Page settings(settings_components, 4, VIEWPORT_HEIGHT, &history);
-Home_Page home(home_components, 2, VIEWPORT_HEIGHT, &history);
-LCD_1602_Page *pages[] = {&home, &settings};
+Settings_Page settings(settings_components, 4, VIEWPORT_HEIGHT, &history, &lcd);
+Home_Page home(home_components, 2, VIEWPORT_HEIGHT, &history, &lcd);
+LCD_1602_Page<LCD_1602> *pages[] = {&home, &settings};
 
-win::Window<LCD_1602_Page> window(pages, 2);
+win::Window<LCD_1602_Page<LCD_1602>> window(pages, 2);
 
 void setup() {
   // Serial.begin(115200);

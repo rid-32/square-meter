@@ -1,5 +1,6 @@
 clang
 -I/home/rid/.platformio/packages/framework-arduino-avr/cores/arduino
+-I./include
 -I./lib/Ctrl
 -I./lib/Window
 -I./lib/Utils
