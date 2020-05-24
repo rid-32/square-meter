@@ -21,12 +21,13 @@
 typedef LCD_1602_RUS<LiquidCrystal> LCD_1602;
 
 struct Storage_Data {
+  double area;
   uint16_t rotation;
   uint16_t distance;
   double width;
 };
 
-Storage_Data storage_data = {0, 0, 0.0};
+Storage_Data storage_data = {0.0, 0, 0, 0.0};
 
 strg::Storage<Storage_Data> storage(&storage_data);
 
@@ -41,14 +42,13 @@ void handle_long_keydown(const ctrl::Button_Event *);
 
 win::History history(HOME_PAGE);
 
-double area_done = 12.25;
-
 class Area_Done : public LCD_1602_Component {
 public:
   Area_Done(uint8_t viewport_width) { this->viewport_width = viewport_width; }
 
   String render() {
-    const String value = String(area_done);
+    const Storage_Data data = storage.get();
+    const String value = String(data.area);
     const String tail = String(" Га");
     const uint8_t value_length = value.length() + 3;
 
@@ -89,8 +89,12 @@ public:
   }
 
   bool handle_keyup(const win::Event *event) {
-    if (area_done) {
-      area_done = 0.0;
+    Storage_Data data = storage.get();
+
+    if (data.area) {
+      data.area = 0.0;
+
+      storage.set(&data);
 
       this->history->push(HOME_PAGE);
     }

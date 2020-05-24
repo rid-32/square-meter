@@ -4,7 +4,7 @@
 #define STORAGE
 
 #define INIT_ADDR 1023 // номер резервной ячейки
-#define INIT_KEY 51 // ключ первого запуска. 0-254, на выбор
+#define INIT_KEY 50 // ключ первого запуска. 0-254, на выбор
 #define ADDRESS 0
 
 namespace strg {
