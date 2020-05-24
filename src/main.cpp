@@ -44,7 +44,7 @@ win::History history(HOME_PAGE);
 
 class Area_Done : public LCD_1602_Component {
 public:
-  Area_Done(uint8_t viewport_width) { this->viewport_width = viewport_width; }
+  Area_Done() { this->viewport_width = VIEWPORT_WIDTH; }
 
   String render() {
     const Storage_Data data = storage.get();
@@ -250,7 +250,7 @@ Distance_Counter distance;
 Width_Counter width;
 
 Label done_label(VIEWPORT_WIDTH, "Обработано:", 11);
-Area_Done area_done_label(VIEWPORT_WIDTH);
+Area_Done area_done_label;
 
 Reset reset(VIEWPORT_WIDTH, &history);
 
