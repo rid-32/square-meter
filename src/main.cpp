@@ -10,13 +10,14 @@
 #define _LCD_TYPE 2
 #include "LCD_1602_RUS_ALL.h"
 
-#define BUTTON 8
-#define L_ENC_PIN 9
-#define R_ENC_PIN 10
+#define BUTTON 9
+#define L_ENC_PIN 10
+#define R_ENC_PIN 11
 #define VIEWPORT_HEIGHT 2
 #define VIEWPORT_WIDTH 16
 #define HOME_PAGE 0
 #define SETTINGS_PAGE 1
+#define HOLL_INT 0
 
 typedef LCD_1602_RUS<LiquidCrystal> LCD_1602;
 
@@ -31,14 +32,17 @@ Storage_Data storage_data = {0.0, 0, 0, 0.0};
 
 strg::Storage<Storage_Data> storage(&storage_data);
 
-LCD_1602 lcd(2, 3, 4, 5, 6, 7);
+LCD_1602 lcd(3, 4, 5, 6, 7, 8);
 
 ctrl::Button btn(LOW, BUTTON);
 ctrl::Encoder enc(0x03, L_ENC_PIN, R_ENC_PIN);
 
+bool calc_enable = true;
+
 void handle_rotate(const ctrl::Encoder_Event *);
 void handle_keyup(const ctrl::Button_Event *);
 void handle_long_keydown(const ctrl::Button_Event *);
+void calc_value();
 
 win::History history(HOME_PAGE);
 
@@ -193,6 +197,10 @@ public:
     this->history = history;
   };
 
+  void handle_did_mount() { calc_enable = true; }
+
+  void handle_will_unmount() { calc_enable = false; }
+
   bool handle_capture_longkeydown(const win::Event *event) {
     this->history->push(SETTINGS_PAGE);
 
@@ -265,8 +273,6 @@ LCD_1602_Page<LCD_1602> *pages[] = {&home, &settings};
 win::Window<LCD_1602_Page<LCD_1602>> window(pages, 2);
 
 void setup() {
-  // Serial.begin(115200);
-
   lcd.begin(VIEWPORT_WIDTH, VIEWPORT_HEIGHT);
 
   pinMode(BUTTON, INPUT);
@@ -278,6 +284,8 @@ void setup() {
   btn.on("longkeydown", handle_long_keydown);
 
   window.connect(&history);
+
+  attachInterrupt(HOLL_INT, calc_value, FALLING);
 }
 
 void loop() {
@@ -317,4 +325,17 @@ void handle_long_keydown(const ctrl::Button_Event *event) {
   window_event.type = win::LONGKEYDOWN;
 
   window.dispatch_event(&window_event);
+}
+
+void calc_value() {
+  if (calc_enable) {
+    Storage_Data data = storage.get();
+    double new_square = ((data.distance / data.rotation) * data.width) / 10000;
+
+    data.area = data.area + new_square;
+
+    storage.set(&data);
+
+    area_done_label.force_update();
+  }
 }
