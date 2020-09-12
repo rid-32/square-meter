@@ -52,7 +52,7 @@ public:
 
   String render() {
     const Storage_Data data = storage.get();
-    const String value = String(data.area);
+    const String value = String(data.area, 4).substring(0, 4);
     const String tail = String(" Га");
     const uint8_t value_length = value.length() + 3;
 
@@ -330,7 +330,10 @@ void handle_long_keydown(const ctrl::Button_Event *event) {
 void calc_value() {
   if (calc_enable) {
     Storage_Data data = storage.get();
-    double new_square = ((data.distance / data.rotation) * data.width) / 10000;
+
+    double new_square =
+        ((double(data.distance) / double(data.rotation)) * data.width) /
+        10000.0;
 
     data.area = data.area + new_square;
 
