@@ -37,7 +37,8 @@ LCD_1602 lcd(3, 4, 5, 6, 7, 8);
 ctrl::Button btn(LOW, BUTTON);
 ctrl::Encoder enc(0x03, L_ENC_PIN, R_ENC_PIN);
 
-bool calc_enable = true;
+bool calc_area_enable = true;
+bool calc_rotations_enable = false;
 
 void handle_rotate(const ctrl::Encoder_Event *);
 void handle_keyup(const ctrl::Button_Event *);
@@ -134,6 +135,14 @@ public:
 
     storage.set(&data);
   }
+
+  bool handle_keyup(const win::Event *event) {
+    const bool result = Simple_Counter::handle_keyup(event);
+
+    calc_rotations_enable = this->choosen;
+
+    return result;
+  }
 };
 
 class Distance_Counter : public Simple_Counter {
@@ -197,9 +206,9 @@ public:
     this->history = history;
   };
 
-  void handle_did_mount() { calc_enable = true; }
+  void handle_did_mount() { calc_area_enable = true; }
 
-  void handle_will_unmount() { calc_enable = false; }
+  void handle_will_unmount() { calc_area_enable = false; }
 
   bool handle_capture_longkeydown(const win::Event *event) {
     this->history->push(SETTINGS_PAGE);
@@ -328,7 +337,7 @@ void handle_long_keydown(const ctrl::Button_Event *event) {
 }
 
 void calc_value() {
-  if (calc_enable) {
+  if (calc_area_enable) {
     Storage_Data data = storage.get();
 
     double new_square =
@@ -340,5 +349,15 @@ void calc_value() {
     storage.set(&data);
 
     area_done_label.force_update();
+
+    return;
+  }
+
+  if (calc_rotations_enable) {
+    rotation.counter++;
+
+    rotation.force_update();
+
+    return;
   }
 }
